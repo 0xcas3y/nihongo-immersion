@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日語沉浸学習器</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; }
+body {
+  background:#07071a; color:#f0f0ff;
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  display:flex; flex-direction:column;
+}
+:root {
+  --bg:#07071a; --s1:#0e0e24; --s2:#14142e; --s3:#1c1c3a;
+  --b1:#22224a; --b2:#2e2e58;
+  --t1:#f0f0ff; --t2:#8888b8; --t3:#44445a;
+  --ac:#7c6fff; --ac2:#a599ff;
+  --noun:#ff7eb8; --verb:#00e0b0; --part:#ffcc44;
+  --adj:#66d9ff; --adv:#ffaa44; --aux:#cc88ff; --other:#aaaaff;
+}
+.topbar {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 16px; background:var(--s1);
+  border-bottom:1px solid var(--b1); flex-shrink:0; flex-wrap:wrap;
+}
+.brand { font-size:18px; font-weight:800; font-style:italic; white-space:nowrap; }
+.brand span { color:var(--ac2); }
+.upload-btn {
+  display:flex; align-items:center; gap:7px; padding:7px 14px;
+  border-radius:8px; cursor:pointer; font-size:12px; border:1px solid;
+  transition:all .2s; white-space:nowrap;
+}
+.upload-btn input { display:none; }
+.upload-btn.video { background:rgba(124,111,255,.1); border-color:rgba(124,111,255,.3); color:var(--ac2); }
+.upload-btn.video.loaded { background:rgba(0,224,176,.1); border-color:rgba(0,224,176,.3); color:var(--verb); }
+.upload-btn.srt { background:rgba(255,204,68,.08); border-color:rgba(255,204,68,.25); color:var(--part); }
+.upload-btn.srt.loaded { background:rgba(0,224,176,.1); border-color:rgba(0,224,176,.3); color:var(--verb); }
+.topbar-stats { margin-left:auto; font-size:11px; color:var(--t3); }
+.topbar-stats span { color:var(--ac2); }
+.topbar-stats .fs { color:#ffc107; }
+.layout { flex:1; display:flex; overflow:hidden; }
+.left { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; min-width:300px; }
+.video-wrap { background:#000; flex-shrink:0; }
+video { width:100%; height:55vh; min-height:220px; display:block; object-fit:contain; background:#000; flex-shrink:0; }
+video::-webkit-media-controls-overlay-play-button { display:none !important; opacity:0 !important; }
+video::-webkit-media-controls-start-playback-button { display:none !important; opacity:0 !important; }
+video::-webkit-media-controls { display:none !important; }
+
+.video-container { position:relative; flex-shrink:0; }
+.sub-overlay { display:none !important; }
+.sub-overlay-jp {
+  font-size:32px; font-weight:700; line-height:1.5;
+  color:#fff; text-shadow:0 2px 10px rgba(0,0,0,1), 0 0 30px rgba(0,0,0,.8);
+  margin-bottom:8px; letter-spacing:1px;
+}
+.sub-overlay-zh {
+  font-size:20px; font-weight:500;
+  color:rgba(255,255,230,.95);
+  text-shadow:0 1px 6px rgba(0,0,0,1);
+  line-height:1.5;
+}
+.video-empty {
+  height:55vh; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:12px;
+  background:radial-gradient(ellipse 80% 60% at 50% 100%, #140f3a 0%, var(--bg) 100%);
+  cursor:pointer;
+}
+.video-empty .circle {
+  width:72px; height:72px; border-radius:50%;
+  border:2px dashed var(--b2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:28px; color:var(--t3); transition:all .2s;
+}
+.video-empty:hover .circle { border-color:var(--ac); color:var(--ac2); }
+.video-empty p { font-size:14px; color:var(--t2); }
+.video-empty small { font-size:11px; color:var(--t3); }
+.sub-strip {
+  flex-shrink:0;
+  max-height:30vh;
+  overflow-y:auto;
+  background:var(--s1);
+  border-top:1px solid var(--b1);
+  padding:10px 12px 10px;
+}
+.trans-zh {
+  font-size:18px; color:var(--t2); line-height:1.6;
+  padding-top:10px; margin-top:8px;
+  border-top:1px solid var(--b1);
+}
+.strip-top { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.strip-label { font-size:9px; color:var(--t3); letter-spacing:2px; text-transform:uppercase; }
+.strip-time { font-size:11px; color:var(--ac2); font-family:monospace; margin-left:auto; }
+.btn-fav { background:none; border:none; cursor:pointer; font-size:20px; color:var(--t3); padding:0 2px; transition:all .15s; line-height:1; }
+.overlay-toggles { display:flex; gap:5px; margin-left:auto; margin-right:8px; }
+.tog {
+  padding:3px 9px; border-radius:6px; border:1px solid var(--b2);
+  background:var(--s3); color:var(--t3); font-size:11px; font-weight:700;
+  cursor:pointer; transition:all .15s;
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+}
+.tog.on { background:var(--ac); border-color:var(--ac); color:#fff; }
+.btn-rec {
+  background:none; border:none; cursor:pointer; font-size:18px;
+  color:var(--t3); padding:0 4px; transition:all .15s; line-height:1;
+}
+.btn-rec.recording { color:#ff4444; animation:pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.rec-panel {
+  margin-top:10px; padding:10px 12px;
+  background:var(--s3); border-radius:8px; border:1px solid var(--b1);
+}
+.rec-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.rec-row:last-child { margin-bottom:0; }
+.rec-label { font-size:10px; color:var(--t3); width:28px; flex-shrink:0; }
+.rec-play-btn {
+  padding:4px 10px; border-radius:6px; border:none;
+  background:var(--s2); color:var(--t2); font-size:11px; cursor:pointer;
+  white-space:nowrap; border:1px solid var(--b1); transition:all .15s;
+  font-family:"Hiragino Sans","Yu Gothic",sans-serif;
+}
+.rec-play-btn:hover { background:var(--b1); color:#fff; }
+.rec-start { background:rgba(255,68,68,.15); border-color:rgba(255,68,68,.3); color:#ff8888; }
+.rec-start.recording { background:rgba(255,68,68,.3); color:#ff4444; }
+.btn-fav.on { color:#ffc107; }
+.word-row { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; align-items:flex-end; min-height:68px; margin-bottom:4px; }
+.wc { display:flex; flex-direction:column; align-items:center; gap:1px; cursor:pointer; padding:3px 4px; border-radius:6px; transition:background .1s; }
+.wc:hover, .wc.active { background:var(--s3); }
+.wc-furi { font-size:12px; color:var(--t2); min-height:15px; }
+.wc-kanji { font-size:28px; font-weight:600; padding:4px 8px; border-radius:6px; border-bottom:2px solid transparent; }
+.wc-roma { font-size:11px; color:var(--t3); font-family:monospace; }
+.pos-noun .wc-kanji { color:var(--noun); background:rgba(255,126,184,.1); border-bottom-color:var(--noun); }
+.pos-verb .wc-kanji { color:var(--verb); background:rgba(0,224,176,.1); border-bottom-color:var(--verb); }
+.pos-part .wc-kanji { color:var(--part); background:rgba(255,204,68,.1); border-bottom-color:var(--part); }
+.pos-adj  .wc-kanji { color:var(--adj);  background:rgba(102,217,255,.1); border-bottom-color:var(--adj); }
+.pos-adv  .wc-kanji { color:var(--adv);  background:rgba(255,170,68,.1); border-bottom-color:var(--adv); }
+.pos-aux  .wc-kanji { color:var(--aux);  background:rgba(204,136,255,.1); border-bottom-color:var(--aux); }
+.pos-adj   .wc-kanji { color:var(--adj);   background:rgba(102,217,255,.1); border-bottom-color:var(--adj); }
+.pos-adv   .wc-kanji { color:var(--adv);   background:rgba(255,170,68,.1);  border-bottom-color:var(--adv); }
+.pos-aux   .wc-kanji { color:var(--aux);   background:rgba(204,136,255,.1); border-bottom-color:var(--aux); }
+.pos-other .wc-kanji { color:var(--other); background:rgba(170,170,255,.1); border-bottom-color:var(--other); }
+.trans-row { padding-top:10px; border-top:1px solid var(--b1); font-size:26px; color:var(--t1); line-height:1.6; text-align:center; }
+.popup-wrap {
+  flex-shrink:0; margin:0 14px;
+  background:var(--s3); border:1px solid var(--b2);
+  border-radius:10px; padding:12px 14px;
+  border-top:none; border-top-left-radius:0; border-top-right-radius:0;
+  display:none;
+}
+.popup-wrap.show { display:block; }
+.popup-inner { display:flex; align-items:flex-start; gap:12px; }
+.popup-left { flex:1; }
+.popup-word { font-size:28px; font-weight:700; }
+.popup-reading { font-size:12px; color:var(--t2); margin:3px 0 6px; }
+.popup-tag { display:inline-block; padding:2px 10px; border-radius:20px; font-size:10px; font-weight:700; margin-bottom:6px; }
+.popup-meaning { font-size:12px; color:var(--t2); line-height:1.6; }
+.popup-actions { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+.btn-speak { padding:7px 10px; border-radius:7px; border:none; background:var(--s2); color:var(--t2); font-size:16px; cursor:pointer; transition:all .15s; border:1px solid var(--b1); }
+.btn-speak:hover { background:var(--s3); color:#fff; }
+.btn-add { padding:7px 12px; border-radius:7px; border:none; background:var(--ac); color:#fff; font-size:12px; cursor:pointer; font-weight:700; white-space:nowrap; transition:all .15s; }
+.btn-add.done { background:#00c488; }
+.btn-close { padding:6px 12px; border-radius:7px; background:var(--s2); border:1px solid var(--b1); color:var(--t2); font-size:12px; cursor:pointer; }
+.sub-list { flex:1; overflow-y:auto; padding:10px 12px; min-height:0; height:0; position:relative; }
+.sub-list::-webkit-scrollbar { width:3px; }
+.sub-list::-webkit-scrollbar-thumb { background:var(--b2); border-radius:2px; }
+.sub-list-title { font-size:9px; color:var(--t3); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+.sub-item { display:flex; gap:10px; padding:7px 9px; border-radius:8px; cursor:pointer; margin-bottom:2px; border:1px solid transparent; transition:all .1s; }
+.sub-item:hover { background:var(--s2); }
+.sub-item.active { background:var(--s3); border-color:var(--b1); }
+.si-time { font-family:monospace; font-size:10px; color:var(--ac2); flex-shrink:0; margin-top:3px; }
+.si-body { flex:1; }
+.si-jp { font-size:16px; line-height:1.6; }
+.sub-item.active .si-jp { font-size:18px; font-weight:600; }
+.sub-item.active .si-zh { font-size:12px; color:var(--t2); }
+.si-zh { font-size:11px; color:var(--t3); margin-top:2px; }
+.si-star { color:#ffc107; font-size:11px; flex-shrink:0; margin-top:3px; }
+.empty-list { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--t3); }
+.empty-list .ei { font-size:36px; opacity:.2; }
+.empty-list p { font-size:13px; }
+.empty-list small { font-size:11px; opacity:.6; }
+.sub-panel { width:280px; flex-shrink:0; background:var(--bg); border-left:1px solid var(--b1); display:flex; flex-direction:column; overflow:hidden; min-width:160px; max-width:50vw; }
+.sub-panel .sub-list-inline { height:100%; overflow-y:auto; padding:8px 10px; }
+.right .sub-list-inline { flex:1; overflow-y:auto; padding:8px 10px; }
+.right { width:360px; flex-shrink:0; background:var(--s1); border-left:1px solid var(--b1); overflow:hidden; display:flex; flex-direction:column; height:100%; }
+.divider { width:5px; flex-shrink:0; background:var(--b1); cursor:col-resize; transition:background .15s; }
+.divider:hover, .divider.dragging { background:var(--ac); }
+.tabs { display:flex; flex-shrink:0; border-bottom:1px solid var(--b1); }
+.tab {
+  flex:1; padding:10px 2px; background:none; border:none;
+  border-bottom:2px solid transparent;
+  color:var(--t3); font-size:9px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  transition:all .15s;
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+}
+.tab .ti { font-size:14px; }
+.tab:hover { color:var(--t2); }
+.tab.on { color:var(--ac2); border-bottom-color:var(--ac); }
+.tab-badge { font-size:9px; }
+.tab-body { flex:1; overflow-y:auto; padding:14px; display:none; }
+.tab-body.on { display:block; }
+.tab-body::-webkit-scrollbar { width:3px; }
+.tab-body::-webkit-scrollbar-thumb { background:var(--b2); }
+.steps-card { background:var(--s2); border-radius:10px; padding:12px; border:1px solid var(--b1); margin-bottom:12px; }
+.steps-card h4 { font-size:11px; color:var(--t2); font-weight:700; margin-bottom:8px; }
+.step { font-size:11px; color:var(--t2); line-height:2; display:flex; gap:6px; }
+.step-num { color:var(--t3); flex-shrink:0; }
+.step-num.done { color:var(--verb); }
+.ai-card { background:var(--s2); border-radius:10px; padding:12px; border:1px solid var(--b1); }
+.ai-card h4 { font-size:11px; color:var(--part); font-weight:700; margin-bottom:6px; }
+.ai-card p { font-size:11px; color:var(--t3); margin-bottom:8px; line-height:1.7; }
+textarea {
+  width:100%; height:90px; padding:8px 10px;
+  background:var(--s3); border:1px solid var(--b1);
+  border-radius:8px; color:var(--t1); font-size:11px;
+  outline:none; resize:vertical; line-height:1.6;
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  transition:border-color .2s;
+}
+textarea:focus { border-color:var(--ac); }
+textarea::placeholder { color:var(--t3); }
+.btn-ai {
+  width:100%; padding:9px; margin-top:8px; border:none; border-radius:8px;
+  background:linear-gradient(135deg,var(--ac),var(--ac2));
+  color:#fff; font-size:12px; cursor:pointer; font-weight:700;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  transition:opacity .2s;
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+}
+.btn-ai:disabled { opacity:.5; cursor:not-allowed; }
+.spinner { display:inline-block; animation:spin 1s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.vsearch {
+  width:100%; padding:8px 12px; margin-bottom:10px;
+  background:var(--s2); border:1px solid var(--b1);
+  border-radius:8px; color:var(--t1); font-size:13px; outline:none;
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  transition:border-color .2s;
+}
+.vsearch:focus { border-color:var(--ac); }
+.vsearch::placeholder { color:var(--t3); }
+.vcount { font-size:10px; color:var(--t3); font-family:monospace; margin-bottom:10px; }
+.vc { background:var(--s2); border:1px solid var(--b1); border-radius:9px; padding:10px 12px; margin-bottom:7px; position:relative; transition:border-color .15s; }
+.vc:hover { border-color:var(--b2); }
+.vc-word { font-size:19px; font-weight:600; margin-bottom:2px; }
+.vc-sub { font-size:11px; color:var(--t3); font-family:monospace; margin-bottom:3px; }
+.vc-meaning { font-size:12px; color:var(--t2); line-height:1.5; padding-right:30px; }
+.vc-dot { position:absolute; top:10px; right:10px; width:8px; height:8px; border-radius:50%; }
+.vc-del { position:absolute; bottom:8px; right:8px; background:none; border:none; cursor:pointer; color:var(--t3); font-size:11px; padding:2px 6px; border-radius:4px; opacity:0; transition:all .15s; }
+.vc:hover .vc-del { opacity:1; }
+.fc { background:var(--s2); border:1px solid var(--b1); border-radius:9px; padding:10px 12px; margin-bottom:7px; }
+.fc-jp { font-size:14px; line-height:1.7; margin-bottom:3px; }
+.fc-zh { font-size:11px; color:var(--t3); margin-bottom:7px; }
+.fc-foot { display:flex; align-items:center; gap:6px; }
+.fc-time { font-size:10px; color:var(--ac2); font-family:monospace; flex-shrink:0; }
+.fc-note { flex:1; padding:4px 8px; background:var(--s3); border:1px solid var(--b1); border-radius:5px; color:var(--t2); font-size:11px; outline:none; font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif; }
+.fc-del { background:none; border:none; cursor:pointer; color:var(--t3); font-size:14px; transition:color .15s; }
+.fc-del:hover { color:#ff6b6b; }
+.lg { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; background:var(--s2); margin-bottom:6px; }
+.lg-dot { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+.lg-name { font-size:12px; font-weight:700; }
+.lg-desc { font-size:10px; color:var(--t3); margin-left:auto; text-align:right; }
+.tip-card { background:var(--s2); border-radius:9px; padding:12px; margin-top:8px; border:1px solid var(--b1); font-size:11px; color:var(--t2); line-height:1.9; }
+.empty { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 0; gap:8px; color:var(--t3); text-align:center; }
+.empty .ei { font-size:36px; opacity:.2; margin-bottom:4px; }
+.empty p { font-size:12px; }
+.settings-input {
+  width:100%; padding:8px 10px; background:var(--s3);
+  border:1px solid var(--b1); border-radius:7px;
+  color:var(--t1); font-size:12px; outline:none;
+  font-family:monospace; transition:border-color .2s;
+}
+.settings-input:focus { border-color:var(--ac); }
+.settings-input::placeholder { color:var(--t3); }
+.toggle-row { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--s3); border-radius:8px; border:1px solid var(--b1); margin-top:10px; }
+.toggle-wrap { margin-left:auto; position:relative; width:36px; height:20px; cursor:pointer; flex-shrink:0; }
+.toggle-wrap input { opacity:0; width:0; height:0; position:absolute; }
+.toggle-track { position:absolute; inset:0; border-radius:20px; background:var(--b2); transition:.2s; }
+.toggle-wrap input:checked + .toggle-track { background:var(--ac); }
+.toggle-dot { position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:#fff; transition:.2s; pointer-events:none; }
+.toggle-wrap input:checked ~ .toggle-dot { left:19px; }
+.progress-bar { height:4px; background:var(--b1); border-radius:2px; margin:8px 0; overflow:hidden; }
+.progress-fill { height:100%; background:linear-gradient(90deg,#0a7aff,#00e0b0); border-radius:2px; transition:width .3s; }
+#toast {
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(10px);
+  background:var(--s3); border:1px solid var(--b2);
+  border-radius:9px; padding:9px 18px; font-size:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.6); opacity:0;
+  transition:all .25s; z-index:1000; pointer-events:none; white-space:nowrap;
+}
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+#toast.ok { color:var(--verb); }
+#toast.warn { color:var(--adv); }
+/* mobile only */
+@media:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  background:var(--bg); color:var(--t1); height:100vh; display:flex; flex-direction:column; overflow:hidden; font-size:14px; }
+
+.topbar-tabs { display:flex; gap:2px; margin-left:auto; align-items:center; }
+.ttab {
+  background:none; border:none; border-radius:7px;
+  padding:5px 8px; font-size:16px; cursor:pointer;
+  color:var(--t3); position:relative; transition:background .15s;
+}
+.ttab:hover { background:var(--s2); }
+.ttab.on { background:var(--s2); color:var(--t1); }
+.ttab .tab-badge { position:absolute; top:2px; right:2px; font-size:9px; }
+
+/* ── MOBILE STYLES ─────────────────────────────────────── */
+
+
+/* ── MOBILE ─────────────────────────────────────────────── */
+
+
+.sub-list-inline { flex:1; overflow-y:auto; }
+.sub-list-inline .sub-item { padding:8px 10px; border-bottom:1px solid var(--b2); cursor:pointer; transition:background .15s; }
+.sub-list-inline .sub-item:hover { background:var(--s3); }
+.sub-list-inline .sub-item.active { background:rgba(139,92,246,.15); border-left:3px solid var(--ac); }
+.sub-list-inline .si-time { font-size:10px; color:var(--t3); margin-bottom:3px; }
+.sub-list-inline .si-jp { font-size:13px; line-height:1.5; color:var(--t2); }
+.sub-list-inline .si-zh { font-size:11px; color:var(--t3); margin-top:2px; line-height:1.4; }
+.sub-list-inline .sub-item.active .si-jp { font-size:19px; font-weight:700; color:var(--t1); line-height:1.5; }
+.sub-list-inline .sub-item.active .si-zh { font-size:15px; color:var(--ac2); font-weight:500; margin-top:4px; }
+.sub-list-inline .sub-item.active { background:rgba(139,92,246,.15); border-left:3px solid var(--ac); padding:12px 10px; }
+.btn-mecab { width:100%; padding:8px; border-radius:7px; border:none; background:var(--ac); color:#fff; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; }
+.btn-mecab:hover { opacity:.85; }
+
+/* ── POPUP MOBILE MODAL ─────────────────────────────────── */
+
+
+/* ── MOBILE STYLES ──────────────────────────────────────── */
+
+
+
+
+.ma-btn {
+  background:none; border:1px solid var(--b1); border-radius:8px;
+  padding:8px 0; color:var(--t2); font-size:20px; cursor:pointer;
+  flex:1; min-width:0;
+}
+.ma-btn-sm {
+  background:none; border:1px solid var(--b1); border-radius:8px;
+  padding:4px 7px; color:var(--t2); font-size:12px; cursor:pointer;
+  line-height:1.3; text-align:center; flex-shrink:0;
+}
+
+/* Mobile panel components */
+#mobilePanel {
+  display:none;
+  background:var(--bg);
+  flex-direction:column;
+  overflow:hidden;
+  position:relative;
+}
+#mobileWordStrip {
+  padding:14px 10px 10px;
+  padding-bottom:130px;
+  flex:1;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+#mobileWordStrip .mw-row { display:flex; flex-wrap:wrap; gap:6px; align-items:flex-end; justify-content:center; padding:4px 0; }
+#mobileWordStrip .mw-chip {
+  display:inline-flex; flex-direction:column; align-items:center;
+  padding:4px 8px; border-radius:8px; cursor:pointer;
+  border:1px solid transparent; transition:all .15s;
+  font-size:15px; font-weight:600; line-height:1.2;
+  color:var(--t1);
+}
+#mobileWordStrip .mw-chip.pos-noun { color:var(--noun); background:rgba(255,126,184,.12); border-color:rgba(255,126,184,.3); }
+#mobileWordStrip .mw-chip.pos-verb { color:var(--verb); background:rgba(0,224,176,.12); border-color:rgba(0,224,176,.3); }
+#mobileWordStrip .mw-chip.pos-part { color:var(--part); background:rgba(255,204,68,.12); border-color:rgba(255,204,68,.3); }
+#mobileWordStrip .mw-chip.pos-adj  { color:var(--adj);  background:rgba(96,165,250,.12); border-color:rgba(96,165,250,.3); }
+#mobileWordStrip .mw-chip.pos-adv  { color:var(--adv);  background:rgba(251,146,60,.12); border-color:rgba(251,146,60,.3); }
+#mobileWordStrip .mw-chip.pos-aux  { color:var(--aux);  background:rgba(192,132,252,.12); border-color:rgba(192,132,252,.3); }
+#mobileWordStrip .mw-chip:active { opacity:.6; transform:scale(.93); }
+#mobileWordStrip .mw-chip:active { opacity:.7; transform:scale(.95); }
+#mobileWordStrip .mw-furi { font-size:8px; color:var(--t3); margin-bottom:1px; min-height:10px; }
+#mobileWordStrip .mw-actions {
+  display:flex; gap:8px; align-items:center;
+  margin-top:8px; padding-top:6px; border-top:1px solid var(--b2);
+}
+
+#mobileCurrZh {
+  font-size:15px; color:var(--t1); line-height:1.5;
+  padding:8px 16px 6px;
+  flex-shrink:0;
+  text-align:center;
+  border-top:1px solid var(--b1);
+  transition: background 0.3s;
+}
+#mobileCurrJp {
+  font-size:13px; color:#fff; line-height:1.6;
+  padding:6px 16px 8px;
+  text-align:center;
+  border-top:1px solid var(--b2);
+  /* fixed above action bar */
+  position:fixed; bottom:58px; left:0; right:0;
+  z-index:150; background:var(--bg);
+}
+#mobileCurrJp {
+  font-size:13px; color:var(--t3); line-height:1.5;
+  padding:2px 20px 10px;
+  flex-shrink:0;
+  text-align:center;
+  border-bottom:1px solid var(--b1);
+}
+#mobileSubList {
+  display:none !important;
+}
+#mobileSubList .ms-item {
+  padding:9px 14px; border-bottom:1px solid var(--b2);
+  cursor:pointer; opacity:0.4; transition:all .2s;
+  display:flex; flex-direction:column; gap:3px;
+}
+#mobileSubList .ms-item.ms-active {
+  opacity:1; background:rgba(139,92,246,.10);
+  border-left:3px solid var(--ac); padding-left:11px;
+}
+#mobileSubList .ms-jp { font-size:13px; color:var(--t2); line-height:1.5; }
+#mobileSubList .ms-item.ms-active .ms-jp { font-size:13px; font-weight:600; color:var(--t1); }
+#mobileSubList .ms-zh { font-size:11px; color:var(--t3); }
+#mobileSubList .ms-item.ms-active .ms-zh { font-size:11px; color:var(--ac2); }
+#mobileSubList .ms-time { font-size:9px; color:var(--t3); }
+
+@keyframes zhFlash {
+  0%   { background: rgba(124,111,255,0.25); color:#fff; }
+  100% { background: transparent; color:var(--t1); }
+}
+.zh-flash { animation: zhFlash 0.6s ease-out forwards; }
+
+/* ── MOBILE (max-width: 700px) ─────────────────────────── */
+
+
+/* ── MOBILE ──────────────────────────────────────────────── */
+
+/* ── MOBILE ─────────────────────────────────────────────────── */
+
+
+/* Mobile word chips */
+#mobileWordStrip .mw-chip {
+  display:inline-flex; flex-direction:column; align-items:center;
+  padding:3px 8px; border-radius:8px; cursor:pointer;
+  border:1px solid transparent; font-size:17px; font-weight:600; line-height:1.2;
+}
+#mobileWordStrip .mw-chip .mw-furi { font-size:9px; color:var(--t3); margin-bottom:1px; min-height:10px; display:block; text-align:center; }
+#mobileWordStrip .mw-chip.pos-noun { color:var(--noun); background:rgba(255,126,184,.12); border-color:rgba(255,126,184,.3); }
+#mobileWordStrip .mw-chip.pos-verb { color:var(--verb); background:rgba(0,224,176,.12); border-color:rgba(0,224,176,.3); }
+#mobileWordStrip .mw-chip.pos-part { color:var(--part); background:rgba(255,204,68,.12); border-color:rgba(255,204,68,.3); }
+#mobileWordStrip .mw-chip.pos-adj  { color:var(--adj);  background:rgba(96,165,250,.12); border-color:rgba(96,165,250,.3); }
+#mobileWordStrip .mw-chip.pos-adv  { color:var(--adv);  background:rgba(251,146,60,.12); border-color:rgba(251,146,60,.3); }
+#mobileWordStrip .mw-chip.pos-aux  { color:var(--aux);  background:rgba(192,132,252,.12); border-color:rgba(192,132,252,.3); }
+/* Mobile subtitle list */
+#mobileSubList .ms-item { padding:8px 14px; border-bottom:1px solid var(--b2); cursor:pointer; opacity:0.45; }
+#mobileSubList .ms-item.ms-active { opacity:1; background:rgba(139,92,246,.1); border-left:3px solid var(--ac); padding-left:11px; }
+#mobileSubList .ms-jp { font-size:13px; color:var(--t2); line-height:1.5; }
+#mobileSubList .ms-item.ms-active .ms-jp { font-weight:600; color:var(--t1); }
+#mobileSubList .ms-zh { font-size:11px; color:var(--t3); margin-top:2px; }
+#mobileSubList .ms-item.ms-active .ms-zh { color:var(--ac2); }
+/* Mobile popup as bottom sheet */
+
+
+/* ── MOBILE (max 700px) ─────────────────────────────────── */
+
+
+
+/* ── MOBILE ≤700px ─────────────────────────────────────── */
+@media (max-width: 700px) {
+  /* Hide desktop panels */
+  .right, .divider, .sub-strip, .topbar-stats, .sub-overlay { display:none !important; }
+
+  /* Topbar: compact single line */
+  .topbar { padding:4px 8px; gap:3px; flex-wrap:nowrap; overflow:hidden; }
+  .brand  { font-size:13px !important; flex-shrink:0; }
+  .btn-label { display:none !important; }
+  .upload-btn { padding:5px 7px !important; font-size:16px !important; }
+  .ttab { padding:5px 6px; font-size:12px; }
+
+  /* Layout = column, fills viewport below topbar */
+  .layout {
+    display:flex !important;
+    flex-direction:column !important;
+    height:calc(100dvh - 48px);
+    overflow:hidden;
+  }
+
+  /* Left: only video, no flex grow */
+  .left {
+    flex:none !important;
+    width:100% !important;
+    min-width:0 !important;
+    overflow:hidden !important;
+    display:block !important;
+  }
+  .video-container { width:100%; }
+  video            { width:100% !important; height:56vw !important;
+                     min-height:140px; display:block;
+                     object-fit:contain; background:#000; }
+  .video-empty     { width:100% !important; height:56vw !important;
+                     min-height:140px; }
+
+  /* Mobile panel fills rest */
+  #mobilePanel {
+    display:flex !important;
+    flex:1;
+    min-height:0;
+    overflow:hidden;
+    padding-bottom:64px;   /* space for fixed action bar */
+  }
+
+  /* Show action bar */
+  #mobileActionBar { display:flex !important; }
+
+  /* Chip colors */
+  .mw-chip.pos-noun  { color:#ff7eb8; background:rgba(255,126,184,.12); border-color:rgba(255,126,184,.3) !important; }
+  .mw-chip.pos-verb  { color:#00e0b0; background:rgba(0,224,176,.12);   border-color:rgba(0,224,176,.3)   !important; }
+  .mw-chip.pos-part  { color:#ffcc44; background:rgba(255,204,68,.12);  border-color:rgba(255,204,68,.3)  !important; }
+  .mw-chip.pos-adj   { color:#66d9ff; background:rgba(102,217,255,.12); border-color:rgba(102,217,255,.3) !important; }
+  .mw-chip.pos-adv   { color:#ffaa44; background:rgba(255,170,68,.12);  border-color:rgba(255,170,68,.3)  !important; }
+  .mw-chip.pos-aux   { color:#cc88ff; background:rgba(204,136,255,.12); border-color:rgba(204,136,255,.3) !important; }
+  .mw-chip.pos-other { color:#aaaaff; background:rgba(170,170,255,.08); border-color:rgba(170,170,255,.2) !important; }
+
+  /* Popup: bottom sheet */
+  .popup-wrap.show {
+    display:block !important;
+    position:fixed !important; left:0; right:0; bottom:0; top:auto !important;
+    z-index:1000; border-radius:16px 16px 0 0 !important;
+    padding:16px !important; max-height:60vh; overflow-y:auto;
+    background:var(--s1) !important;
+    box-shadow:0 -4px 24px rgba(0,0,0,.5);
+  }
+}
+@media (min-width: 701px) {
+  #mobilePanel      { display:none !important; }
+  #mobileActionBar  { display:none !important; }
+}
+</style>
+</head>
+<body>
+  <!-- Hidden legacy elements -->
+  <span id="step1" style="display:none"></span>
+  <span id="step2" style="display:none"></span>
+  <audio id="origAudio" style="display:none"></audio>
+
+<div class="topbar">
+  <div class="brand">日語<span>沉浸</span></div>
+  <label class="upload-btn video" id="videoBtnLabel" title="上传视频">
+    <span id="videoIcon" class="btn-icon">📂</span>
+    <span id="videoLabel" class="btn-label">上传视频</span>
+    <input type="file" id="videoFile" accept="video/*" onchange="if(this.files[0]) loadVideoFile(this.files[0])">
+  </label>
+  <button class="upload-btn video" onclick="showVideoPicker()" title="选择视频">
+    <span class="btn-icon">🎬</span><span class="btn-label">选择视频</span>
+  </button>
+
+  <label class="upload-btn srt" id="srtBtnLabel">
+    <span id="srtIcon" class="btn-icon">📄</span>
+    <span id="srtLabel" class="btn-label">上传SRT字幕</span>
+    <input type="file" id="srtFile" accept=".srt,.vtt,.txt" onchange="handleSrtFile(this)">
+  </label>
+  <button class="upload-btn srt" onclick="showSrtPicker()" style="gap:5px">
+    <span class="btn-icon">📋</span><span class="btn-label">选择字幕</span>
+  </button>
+
+  <div class="topbar-tabs">
+    <button class="ttab on" id="tab-vocab" onclick="switchTab('vocab')" title="生词">📖<span class="tab-badge" id="badgeVocab" style="color:var(--ac2)"></span></button>
+    <button class="ttab" id="tab-favs" onclick="switchTab('favs')" title="收藏">⭐<span class="tab-badge" id="badgeFav" style="color:#ffc107"></span></button>
+    <button class="ttab" onclick="analyzeAI()" title="词性分析">⚡</button>
+    <button class="ttab" id="tab-settings" onclick="switchTab('settings')" title="设置">⚙️</button>
+  </div>
+</div>
+<div class="topbar-stats" id="topbarStats">
+    生词 <span id="statVocab">0</span> &nbsp; 收藏 <span class="fs" id="statFav">0</span>
+    <button id="mobileVocabBtn" onclick="toggleMobileVocab()" style="display:none;margin-left:8px;background:var(--ac);border:none;border-radius:6px;padding:3px 10px;color:#fff;font-size:11px;cursor:pointer">生词本</button>
+    <button id="mobileFavSentBtn" onclick="mobileFavSentence()" style="display:none;margin-left:6px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:3px 10px;color:var(--t1);font-size:11px;cursor:pointer">收藏句</button>
+  </div>
+
+<div class="layout">
+  <div class="left">
+    <div class="video-container">
+      <div class="video-wrap" id="videoWrap">
+        <label class="video-empty" id="videoEmpty">
+          <div class="circle">📂</div>
+          <p>点击上传本地视频文件</p>
+          <small>MP4 / MOV / WebM 均支持</small>
+          <input type="file" accept="video/*" onchange="loadVideoFromInput(this)" style="display:none">
+        </label>
+      </div>
+      <div class="sub-overlay" id="subOverlay" style="display:none">
+        <div class="sub-overlay-jp" id="overlayJp"></div>
+        <div class="sub-overlay-zh" id="overlayZh"></div>
+      </div>
+    </div>
+
+    <div class="sub-strip">
+      <div class="strip-top">
+        <span class="strip-time" id="stripTime">--:--</span>
+
+        <button class="btn-rec" id="btnRec" onclick="toggleRec()" title="录音对比">🎙</button>
+        <button class="btn-fav" id="favBtn" onclick="toggleFav()">☆</button>
+      </div>
+      <div class="rec-panel" id="recPanel" style="display:none">
+        <div class="rec-row">
+          <audio id="myAudio" controls style="flex:1;height:28px"></audio>
+          <button class="rec-play-btn rec-start" id="recStartBtn" onclick="startRec()">⏺ 录音</button>
+          <button class="rec-play-btn" id="recSaveBtn" onclick="saveRec()" style="display:none">💾 保存</button>
+        </div>
+      </div>
+      <div class="word-row" id="wordRow">
+        <span style="color:var(--t3);font-size:13px">上传SRT字幕后将在此显示...</span>
+      </div>
+      <div class="trans-row">
+        <div id="transText">上传字幕后显示翻译</div>
+      </div>
+    </div>
+
+    <div class="popup-wrap" id="popupWrap">
+      <div class="popup-inner">
+        <div class="popup-left">
+          <div class="popup-word" id="popWord"></div>
+          <div class="popup-reading" id="popReading"></div>
+          <span class="popup-tag" id="popTag"></span>
+          <div class="popup-meaning" id="popMeaning"></div>
+        </div>
+        <div class="popup-actions" id="desktopPopupActions">
+          <button class="btn-add" id="btnAdd" onclick="addToVocab()">+ 生词本</button>
+          <button class="btn-add" onclick="speak(curWord&&curWord.t)" style="background:var(--s2);margin-top:4px">🔊 朗读</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOBILE PANEL -->
+  <div id="mobilePanel" style="display:none;flex-direction:column;flex:1;overflow:hidden;background:var(--bg);">
+    <div id="mobileScroll" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;padding:8px 0 8px;"></div>
+    <div style="height:1px;background:var(--b1);flex-shrink:0;"></div>
+  </div>
+  <!-- Fixed action bar -->
+  <div id="mobileActionBar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--s1);border-top:1px solid var(--b1);padding:6px 8px env(safe-area-inset-bottom,6px);gap:4px;align-items:center;">
+    <button onclick="if(curIdx>0)seekTo(curIdx-1)" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 0;color:var(--t2);font-size:20px;cursor:pointer;flex:1">⏮</button>
+    <button id="mobilePlayBtn" onclick="if(videoEl){if(videoEl.paused)videoEl.play();else videoEl.pause()}" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 0;color:var(--t2);font-size:20px;cursor:pointer;flex:1">▶</button>
+    <button onclick="toggleMobileRec()" id="mobileRecBtn" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 0;color:var(--t2);font-size:20px;cursor:pointer;flex:1">🎙</button>
+    <button id="mobileBlurBtn" onclick="toggleMobileBlur()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 0;color:var(--t2);font-size:20px;cursor:pointer;flex:1">💬</button>
+    <button id="mobileFavBtn" onclick="mobileFavSentence()" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 0;color:var(--t2);font-size:20px;cursor:pointer;flex:1">☆</button>
+    <button onclick="if(curIdx>=0)seekTo(curIdx)" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 0;color:var(--t2);font-size:20px;cursor:pointer;flex:1">↩</button>
+    <button onclick="if(curIdx>=0&&curIdx<subs.length-1)seekTo(curIdx+1)" style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 0;color:var(--t2);font-size:20px;cursor:pointer;flex:1">⏭</button>
+  </div>
+  <div class="divider" id="divider"></div>
+
+  <div class="right" id="rightPanel">
+    <div id="mecabProgress" style="display:none;padding:5px 10px;background:var(--s3);border-bottom:1px solid var(--b1);font-size:11px;color:var(--t3);text-align:center;flex-shrink:0"></div>
+    <div class="sub-list" id="subListInline">
+      <div class="empty-list">
+        <div class="ei">📄</div>
+        <p>上传SRT字幕后显示列表</p>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div id="toast"></div>
+
+<script>
+const POS_CFG = {
+  noun:  { label:'名词', color:'#ff7eb8', bg:'rgba(255,126,184,.1)' },
+  verb:  { label:'动词', color:'#00e0b0', bg:'rgba(0,224,176,.1)' },
+  part:  { label:'助词', color:'#ffcc44', bg:'rgba(255,204,68,.1)' },
+  adj:   { label:'形容词', color:'#66d9ff', bg:'rgba(102,217,255,.1)' },
+  adv:   { label:'副词', color:'#ffaa44', bg:'rgba(255,170,68,.1)' },
+  aux:   { label:'助动词', color:'#cc88ff', bg:'rgba(204,136,255,.1)' },
+  other: { label:'其他',  color:'#aaaaff', bg:'rgba(170,170,255,.1)' },
+};
+
+let subs = [], curIdx = -1, curWord = null, videoEl = null;
+let vocab = loadLS('nj_vocab', []);
+let favs  = loadLS('nj_favs',  []);
+let favSents = loadLS('nj_favSents', []);
+
+function loadLS(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } }
+function saveLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+// ── SETTINGS ──────────────────────────────────────────────────
+function loadSettings() {
+  const key = loadLS('nj_deepl_key', '');
+  const auto = loadLS('nj_auto_translate', false);
+  { const _e=document.getElementById('deeplKey'); if(_e) { if (key) _e.value = key; } }
+  { const _e=document.getElementById('autoTranslate'); if(_e) { _e.checked = auto; } }
+}
+function saveDeepLKey(val) { saveLS('nj_deepl_key', val.trim()); }
+function saveSettings() { saveLS('nj_auto_translate', document.getElementById('autoTranslate').checked); }
+function getDeepLKey() { return document.getElementById('deeplKey').value.trim() || loadLS('nj_deepl_key', ''); }
+
+async function testDeepL() {
+  const key = getDeepLKey();
+  if (!key) { setDeepLStatus('请先填入 API Key', false); return; }
+  setDeepLStatus('测试中...', null);
+  try {
+    const res = await fetch(`/proxy/deepl/v2/translate`, {
+      method: 'POST',
+      headers: { 'Authorization': `DeepL-Auth-Key ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: ['テスト'], source_lang: 'JA', target_lang: 'ZH' })
+    });
+    if (res.ok) { setDeepLStatus('✓ API Key 有效！翻译功能已就绪', true); }
+    else { setDeepLStatus('✗ API Key 无效，请检查', false); }
+  } catch(e) { setDeepLStatus('✗ 连接失败：' + e.message, false); }
+}
+
+function setDeepLStatus(msg, ok) {
+  { const _e=document.getElementById('deeplStatus'); if(_e) { const el = _e; } }
+  el.textContent = msg;
+  el.style.color = ok === true ? '#00e0b0' : ok === false ? '#ff7eb8' : '#8888b8';
+}
+
+// ── DEEPL TRANSLATE ────────────────────────────────────────────
+async function translateBatch(texts, key) {
+  const res = await fetch(`/proxy/deepl/v2/translate`, {
+    method: 'POST',
+    headers: { 'Authorization': `DeepL-Auth-Key ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: texts, source_lang: 'JA', target_lang: 'ZH' })
+  });
+  if (!res.ok) throw new Error('DeepL API 错误 ' + res.status);
+  const data = await res.json();
+  return data.translations.map(t => t.text);
+}
+
+// ── TRANSLATION CACHE ────────────────────────────────────────
+let currentSrtKey = '';
+
+function getSrtCacheKey(subsArr) {
+  // Use first 5 subtitles' text + count as a fingerprint
+  const sample = subsArr.slice(0, 5).map(s => s.w.map(w=>w.t).join('')).join('|');
+  return 'zh_cache_' + subsArr.length + '_' + btoa(encodeURIComponent(sample)).slice(0, 20);
+}
+
+function saveTranslationCache(key, subsArr) {
+  try {
+    const cache = subsArr.map(s => s.zh || '');
+    localStorage.setItem(key, JSON.stringify(cache));
+  } catch(e) {}
+}
+
+function loadTranslationCache(key, subsArr) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const cache = JSON.parse(raw);
+    if (cache.length !== subsArr.length) return false;
+    cache.forEach((zh, i) => { if (zh) subsArr[i].zh = zh; });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function translateAll() {
+  const key = getDeepLKey();
+  if (!key) { showToast('请先在设置中填入 DeepL API Key', false); switchTab('settings'); return; }
+  if (!subs.length) { showToast('请先上传SRT字幕', false); return; }
+
+  // Check cache first
+  currentSrtKey = getSrtCacheKey(subs);
+  if (loadTranslationCache(currentSrtKey, subs)) {
+    buildSubList();
+    if (curIdx >= 0) showSub(curIdx);
+    showToast('✓ 已从缓存加载翻译（无需消耗API额度）');
+    return;
+  }
+
+  { const _e=document.getElementById('btnTranslate'); if(_e) { const btn = _e; } }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner">⟳</span> 翻译中...';
+  const prog = document.getElementById('translateProgress');
+  prog.style.display = 'block';
+
+  const BATCH = 50;
+  let done = 0;
+  try {
+    for (let i = 0; i < subs.length; i += BATCH) {
+      const batch = subs.slice(i, i + BATCH);
+      const texts = batch.map(s => s.w.map(w => w.t).join('') || s.zh);
+      const translated = await translateBatch(texts, key);
+      translated.forEach((zh, j) => { subs[i + j].zh = zh; });
+      done = Math.min(i + BATCH, subs.length);
+      const pct = Math.round(done / subs.length * 100);
+      { const _e=document.getElementById('progressText'); if(_e) { _e.textContent = `已翻译 ${done} / ${subs.length} 句`; } }
+      { const _e=document.getElementById('progressFill'); if(_e) { _e.style.width = pct + '%'; } }
+      buildSubList();
+      if (curIdx >= 0) showSub(curIdx);
+    }
+    // Save to cache
+    saveTranslationCache(currentSrtKey, subs);
+    showToast(`✓ 翻译完成！已缓存，下次无需重新翻译`);
+  } catch(e) {
+    showToast('翻译失败：' + e.message, false);
+  } finally {
+    btn.disabled = false; btn.innerHTML = '🌐 DeepL 翻译全部字幕';
+    setTimeout(() => { prog.style.display = 'none'; }, 3000);
+  }
+}
+
+// ── SRT PARSER ─────────────────────────────────────────────────
+function parseSRT(text) {
+  const norm = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const blocks = norm.trim().split(/\n\s*\n/);
+  const result = [];
+  for (const b of blocks) {
+    const lines = b.split('\n').map(l=>l.trim()).filter(Boolean);
+    const tl = lines.find(l=>l.includes('-->'));
+    if (!tl) continue;
+    const [a,b2] = tl.split('-->').map(s=>s.trim());
+    const pt = str => {
+      const clean = str.replace(',','.').replace(/[^\d:.]/g,'');
+      const p = clean.split(':').map(Number);
+      if (p.length===3) return p[0]*3600+p[1]*60+p[2];
+      if (p.length===2) return p[0]*60+p[1];
+      return 0;
+    };
+    const st = pt(a), et = pt(b2);
+    const txtLines = lines.filter(l=>!/^\d+$/.test(l)&&!l.includes('-->')).map(l=>l.replace(/<[^>]+>/g,'').trim()).filter(Boolean);
+    if (!txtLines.length || et <= st) continue;
+    const txt = txtLines.join(' ');
+    // Check if Chinese (no hiragana/katakana)
+    const isChinese = /[\u4e00-\u9fff]/.test(txt) && !/[\u3040-\u30ff]/.test(txt);
+    if (isChinese) {
+      // Merge into previous entry with same timestamp
+      const prev = result[result.length - 1];
+      if (prev && Math.abs(prev.s - st) < 0.1) { prev.zh = txt; continue; }
+    }
+    result.push({ s:st, e:et, zh:'', w:[{t:txt,f:'',r:'',p:'other',m:''}] });
+  }
+  return result;
+}
+
+const fmt = s => `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+
+// ── VIDEO ──────────────────────────────────────────────────────
+function loadVideoFromInput(input) { const f=input.files[0]; if(f) loadVideoFile(f); }
+
+
+function loadVideoFile(file) {
+  const url = URL.createObjectURL(file);
+  const wrap = document.getElementById('videoWrap');
+  wrap.innerHTML = '';
+  const vid = document.createElement('video');
+  vid.playsInline = true;
+  vid.setAttribute('playsinline', '');
+  vid.setAttribute('webkit-playsinline', '');
+  // Hide native controls on mobile, keep on desktop
+  if (window.innerWidth > 700) { vid.controls = true; }
+  vid.style.cssText = 'width:100%;height:55vh;display:block;object-fit:contain;background:#000';
+  const src = document.createElement('source'); src.src = url; vid.appendChild(src);
+  vid.addEventListener('error', () => showToast('视频格式不支持，请用Safari打开', false));
+  wrap.appendChild(vid); videoEl = vid;
+  const n = file.name.length > 22 ? file.name.slice(0,22)+'…' : file.name;
+  document.getElementById('videoIcon').textContent = '🎬';
+  document.getElementById('videoLabel').textContent = n;
+  document.getElementById('videoBtnLabel').classList.add('loaded');
+  const s1 = document.getElementById('step1'); if (s1) { s1.textContent='✓'; s1.classList.add('done'); }
+  showToast('视频已载入：' + file.name);
+}
+
+// ── SRT LOAD ───────────────────────────────────────────────────
+function handleSrtFile(input) {
+  const file = input.files[0]; if (!file) return;
+  showToast('正在读取字幕...', true);
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const parsed = parseSRT(ev.target.result);
+    if (!parsed.length) { showToast('字幕解析失败，请检查格式', false); return; }
+    subs = parsed; curIdx = -1; buildSubList();
+    document.getElementById('srtIcon').textContent = '✓';
+    document.getElementById('srtLabel').textContent = `字幕已载入 (${parsed.length}句)`;
+    document.getElementById('srtBtnLabel').classList.add('loaded');
+    switchRightTab('subs');
+    const s2 = document.getElementById('step2'); if (s2) { s2.textContent='✓'; s2.classList.add('done'); }
+    showToast(`✓ 已载入 ${parsed.length} 条字幕！`);
+    input.value = '';
+    // Auto-load translation cache
+    const cacheKey = getSrtCacheKey(subs);
+    if (loadTranslationCache(cacheKey, subs)) {
+      buildSubList();
+      showToast('✓ 已从缓存加载翻译');
+    }
+    setTimeout(() => analyzeAI(), 800);
+    // Auto-translate if enabled
+    const autoOn = document.getElementById('autoTranslate')?.checked;
+    const key = getDeepLKey();
+    if (autoOn && key) {
+      setTimeout(() => translateAll(), 500);
+    }
+  };
+  reader.onerror = () => showToast('文件读取失败', false);
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── SUBTITLE DISPLAY ───────────────────────────────────────────
+// ── MOBILE PANEL ─────────────────────────────────────────────
+function isMobile() { return window.innerWidth <= 700; }
+
+function updateMobilePanel(idx) {
+  if (!isMobile()) return;
+
+  // Update play button
+  const pb = document.getElementById('mobilePlayBtn');
+  if (pb && videoEl) pb.textContent = videoEl.paused ? '▶' : '⏸';
+
+  // Update fav button
+  const favBtn = document.getElementById('mobileFavBtn');
+  if (favBtn) {
+    const isFaved = favSents && favSents.some(f => f.idx === idx);
+    favBtn.textContent = isFaved ? '★' : '☆';
+    favBtn.style.color = isFaved ? 'var(--ac)' : '';
+  }
+
+  const scroll = document.getElementById('mobileScroll');
+  if (!scroll || !subs.length) return;
+
+  const from = Math.max(0, idx - 1);
+  const to = Math.min(subs.length - 1, idx + 1);
+  let html_out = '';
+
+  for (let i = from; i <= to; i++) {
+    const s = subs[i];
+    const isActive = i === idx;
+    const jp = s.w && s.w.length ? s.w.map(w => w.t).join('') : (s.text || '');
+
+    if (isActive) {
+      // Active card: MeCab chips + translation merged
+      const chips = s.w && s.w.length
+        ? s.w.map((w, wi) => {
+            const cls = 'pos-' + (w.p || 'other');
+            return `<div class="mw-chip ${cls}" onclick="showPopup(subs[${i}].w[${wi}], null)" style="display:inline-flex;flex-direction:column;align-items:center;padding:4px 9px;border-radius:8px;cursor:pointer;border:1px solid transparent;font-size:18px;font-weight:600;line-height:1.2;margin:3px;">
+              <span style="font-size:9px;color:var(--t3);min-height:11px;display:block">${w.f && /[一-鿿]/.test(w.t) ? kata2hira(w.f) : (w.f||'')}</span>${w.t}
+            </div>`;
+          }).join('')
+        : `<div style="font-size:18px;color:var(--t1);padding:6px 0;line-height:1.5">${jp}</div>`;
+
+      const zh = s.zh ? `<div style="font-size:16px;color:var(--t1);font-weight:500;line-height:1.6;padding:8px 16px 4px;text-align:center;border-top:1px solid var(--b2);margin-top:6px">${s.zh}</div>` : '';
+
+      const blurStyle = mobileBlurred ? 'filter:blur(6px);user-select:none;' : '';
+      html_out += `<div id="ms-${i}" style="margin:6px 10px;padding:12px 10px 10px;background:var(--s1);border-radius:14px;border:1px solid var(--b1);">
+        <div class="blur-target" style="${blurStyle}">
+          <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;">${chips}</div>
+          ${zh}
+        </div>
+      </div>`;
+    } else {
+      // Inactive: plain text, smaller, dimmed
+      const dist = Math.abs(i - idx);
+      const opacity = dist === 1 ? '0.6' : '0.35';
+      const fontSize = dist === 1 ? '14px' : '12px';
+      html_out += `<div id="ms-${i}" onclick="seekTo(${i})" style="padding:8px 16px;text-align:center;cursor:pointer;opacity:${opacity};">
+        <div style="font-size:${fontSize};color:var(--t2);line-height:1.5;">${jp}</div>
+        ${s.zh ? `<div style="font-size:${dist===1?'12px':'11px'};color:var(--t3);margin-top:2px">${s.zh}</div>` : ''}
+      </div>`;
+    }
+  }
+
+  scroll.innerHTML = html_out;
+
+  // Scroll active card to center
+  requestAnimationFrame(() => {
+    const active = document.getElementById('ms-' + idx);
+    if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+}
+
+
+function mobileTapWord(subIdx, wordIdx) {
+  const sub = subs[subIdx];
+  if (!sub || !sub.w[wordIdx]) return;
+  showPopup(sub.w[wordIdx], null);
+}
+
+let mobileRecorder = null, mobileRecChunks = [], mobileRecStream = null;
+function showMobileVocab() {
+  // show vocab in a bottom sheet overlay on mobile
+  const items = vocab.map(v=>`<div style="padding:10px 16px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:16px;color:var(--t1)">${v.t} <span style="font-size:12px;color:var(--t3)">${getFuri(v.t,v.f)}</span></div>
+      <div style="font-size:12px;color:var(--t2);margin-top:2px">${v.m||''}</div>
+    </div>
+    <button onclick="vocab=vocab.filter(x=>x.t!=='${v.t}');saveLS('nj_vocab',vocab);updateBadges();document.getElementById('mobileVocabSheet').remove()" style="background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer">✕</button>
+  </div>`).join('');
+  const sheet = document.createElement('div');
+  sheet.id = 'mobileVocabSheet';
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.6);display:flex;flex-direction:column;justify-content:flex-end';
+  sheet.innerHTML = `<div style="background:var(--s1);border-radius:16px 16px 0 0;max-height:70vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--b1)">
+      <span style="font-size:15px;font-weight:600;color:var(--t1)">生词本 (${vocab.length})</span>
+      { const _e=document.getElementById('mobileVocabSheet'); if(_e) { <button onclick="_e.remove()" style="background:none;border:none;color:var(--t3);font-size:22px;cursor:pointer">✕</button> } }
+    </div>
+    <div style="overflow-y:auto;flex:1">${items||'<div style="padding:30px;text-align:center;color:var(--t3)">暂无生词</div>'}</div>
+  </div>`;
+  sheet.onclick = e=>{ if(e.target===sheet) sheet.remove(); };
+  document.body.appendChild(sheet);
+}
+
+function toggleMobileRec() {
+  { const _e=document.getElementById('mobileRecBtn'); if(_e) { const btn = _e; } }
+  if (!mobileRecorder || mobileRecorder.state === 'inactive') {
+    navigator.mediaDevices.getUserMedia({audio:true}).then(stream => {
+      mobileRecStream = stream;
+      mobileRecChunks = [];
+      const mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+                 : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+      mobileRecorder = mime ? new MediaRecorder(stream, {mimeType:mime}) : new MediaRecorder(stream);
+      mobileRecorder.ondataavailable = e => { if(e.data.size>0) mobileRecChunks.push(e.data); };
+      mobileRecorder.onstop = () => {
+        const ext = mobileRecorder.mimeType.includes('mp4') ? 'm4a' : 'webm';
+        const blob = new Blob(mobileRecChunks, {type: mobileRecorder.mimeType});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'rec_' + Date.now() + '.' + ext; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        mobileRecStream.getTracks().forEach(t=>t.stop());
+        mobileRecorder = null;
+        btn.textContent = '🎙'; btn.style.color = 'var(--t2)';
+        showToast('✓ 录音已保存');
+      };
+      mobileRecorder.start(100);
+      btn.textContent = '⏹'; btn.style.color = '#f44';
+      showToast('🔴 录音中...');
+    }).catch(e => showToast('麦克风权限被拒绝: ' + e.message, false));
+  } else if (mobileRecorder.state === 'recording') {
+    mobileRecorder.stop();
+  }
+}
+
+let mobileBlurred = false;
+function toggleMobileBlur() {
+  mobileBlurred = !mobileBlurred;
+  const btn = document.getElementById('mobileBlurBtn');
+  if (btn) {
+    btn.style.color = mobileBlurred ? 'var(--ac)' : 'var(--t2)';
+    btn.style.background = mobileBlurred ? 'rgba(139,92,246,.15)' : '';
+  }
+  const scroll = document.getElementById('mobileScroll');
+  if (scroll) {
+    // Find active card and blur/unblur its content
+    const chips = scroll.querySelector('.blur-target');
+    scroll.querySelectorAll('.blur-target').forEach(el => {
+      el.style.filter = mobileBlurred ? 'blur(6px)' : '';
+      el.style.userSelect = mobileBlurred ? 'none' : '';
+    });
+  }
+}
+
+function mobileFavSentence() {
+  if (curIdx < 0 || !subs[curIdx]) return;
+  const sub = subs[curIdx];
+  const jp = sub.w && sub.w.length ? sub.w.map(w=>w.t).join('') : (sub.text || '');
+  const existing = favSents.findIndex(f => f.idx === curIdx);
+  if (existing >= 0) {
+    favSents.splice(existing, 1);
+    showToast('已取消收藏');
+  } else {
+    if (!window.favSents) window.favSents = [];
+    favSents.push({ idx: curIdx, jp, zh: sub.zh || '', time: fmt(sub.s) });
+    showToast('✓ 句子已收藏');
+  }
+  saveLS('nj_favSents', favSents);
+  updateMobilePanel(curIdx);
+}
+
+function kata2hira(str) {
+  return str.replace(/[ァ-ン]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
+function getFuri(word, reading) {
+  // Only show furigana if word contains kanji
+  if (!reading) return '';
+  if (!/[\u4e00-\u9fff]/.test(word)) return '';
+  return kata2hira(reading);
+}
+
+function buildMobileReader(centerIdx) {
+  const el = document.getElementById('mobileReader');
+  if (!el || window.innerWidth > 700) return;
+  if (!subs.length) { el.innerHTML = '<div style="padding:20px;color:var(--t3);text-align:center">加载字幕后显示</div>'; return; }
+  const from = Math.max(0, centerIdx - 2);
+  const to = Math.min(subs.length - 1, centerIdx + 2);
+  let out = '';
+  for (let i = from; i <= to; i++) {
+    const s = subs[i];
+    const jp = s.w && s.w.length ? s.w.map(w=>w.t).join('') : '';
+    const zh = s.zh || '';
+    const active = i === centerIdx ? 'mr-active' : '';
+    out += `<div class="mr-item ${active}" onclick="seekTo(${i})">
+      <div class="mr-time">${fmt(s.s)}</div>
+      <div class="mr-jp">${jp}</div>
+      ${zh ? `<div class="mr-zh">${zh}</div>` : ''}
+    </div>`;
+  }
+  el.innerHTML = out;
+  // Scroll active item to center
+  setTimeout(() => {
+    const active = el.querySelector('.ms-active');
+    if (active) active.scrollIntoView({block:'center', behavior:'smooth'});
+  }, 50);
+}
+
+function showSub(idx) {
+  curIdx = idx;
+  buildMobileReader(idx);
+  updateMobilePanel(idx);
+  document.querySelectorAll('.sub-item').forEach((el,i) => el.classList.toggle('active', i===idx));
+  const el = document.getElementById('si-'+idx);
+  if (el) {
+    requestAnimationFrame(() => {
+      const list = document.getElementById('subListInline');
+      if (list) {
+        const elRect = el.getBoundingClientRect();
+        const listRect = list.getBoundingClientRect();
+        const scrollDelta = elRect.top - listRect.top - (list.clientHeight / 2) + (el.clientHeight / 2);
+        list.scrollTop += scrollDelta;
+        console.log('[scroll] idx='+idx+' delta='+scrollDelta.toFixed(1)+' scrollTop='+list.scrollTop.toFixed(1));
+      }
+    });
+  }
+  const sub = idx >= 0 ? subs[idx] : null;
+  document.getElementById('stripTime').textContent = sub ? fmt(sub.s) : '--:--';
+  const transEl = document.getElementById('transText');
+  if (transEl) {
+    transEl.textContent = sub ? (sub.zh || '') : '';
+    transEl.style.display = '';  // always visible
+  }
+  // Update video overlay
+  const overlay = document.getElementById('subOverlay');
+  if (sub && videoEl) {
+    const jp = sub.w.map(w=>w.t).join('');
+    document.getElementById('overlayJp').textContent = jp;
+    document.getElementById('overlayZh').textContent = sub.zh;
+    overlay.style.display = 'block';
+  } else {
+    overlay.style.display = 'none';
+  }
+  const fb = document.getElementById('favBtn');
+  const faved = sub && favs.some(f=>f.zh===sub.zh);
+  fb.className = 'btn-fav' + (faved?' on':'');
+  fb.textContent = faved ? '★' : '☆';
+  const row = document.getElementById('wordRow');
+  row.innerHTML = '';
+  if (!sub) { row.innerHTML = '<span style="color:var(--t3);font-size:13px">播放视频后字幕将自动同步...</span>'; return; }
+  sub.w.forEach((w, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'wc pos-' + w.p;
+    chip.innerHTML = `<div class="wc-furi">${getFuri(w.t, w.f)}</div><div class="wc-kanji">${w.t}</div><div class="wc-roma">${w.r||''}</div>`;
+    chip.onclick = () => showPopup(w, chip);
+    row.appendChild(chip);
+  });
+}
+
+function buildSubList() {
+  const list = document.getElementById('subListInline');
+  if (!subs.length) { list.innerHTML = '<div class="empty-list"><div class="ei">📄</div><p>上传SRT字幕后显示列表</p><small>点击列表可跳转视频时间</small></div>'; return; }
+  list.innerHTML = '<div class="sub-list-title">字幕列表 · ' + subs.length + ' 句</div>';
+  subs.forEach((s, i) => {
+    const jp = s.w.map(w=>w.t).join('');
+    const faved = favs.some(f=>f.zh===s.zh);
+    const item = document.createElement('div');
+    item.className = 'sub-item' + (i===curIdx?' active':'') + (faved?' faved':'');
+    item.id = 'si-'+i;
+    item.innerHTML = `<div class="si-time">${fmt(s.s)}</div><div class="si-body"><div class="si-jp">${jp}</div><div class="si-zh">${s.zh}</div></div>${faved?'<div class="si-star">★</div>':''}`;
+    item.onclick = () => { if(videoEl){videoEl.currentTime=s.s;videoEl.play();} showSub(i); };
+    list.appendChild(item);
+  });
+}
+
+// ── POPUP ──────────────────────────────────────────────────────
+async function showPopup(w, chip) {
+  curWord = w;
+  const pos = POS_CFG[w.p] || POS_CFG.other;
+  document.getElementById('popWord').textContent = w.t;
+  document.getElementById('popWord').style.color = pos.color;
+  document.getElementById('popReading').textContent = w.f ? `読み：${w.f}` : '';
+  const tag = document.getElementById('popTag');
+  tag.textContent = pos.label;
+  tag.style.cssText = `background:${pos.bg};color:${pos.color};border:1px solid ${pos.color}44`;
+  document.getElementById('popMeaning').textContent = w.m || '查询中...';
+  const inV = vocab.some(v=>v.t===w.t);
+  ['btnAdd','btnAddMobile'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.style.display=''; b.textContent = inV ? '✓ 已收录' : '+ 生词本'; b.className = 'btn-add' + (inV?' done':''); }
+  });
+  document.querySelectorAll('.wc').forEach(c=>c.classList.remove('active'));
+  if (chip) chip.classList.add('active');
+  document.getElementById('popupWrap').classList.add('show');
+
+  // Fetch meaning - try JMdict first, fallback to Jisho
+  try {
+    // Try local JMdict first
+    const dictRes = await fetch(`/dict?word=${encodeURIComponent(w.t)}`);
+    let meaning = '', reading = '';
+    if (dictRes.ok) {
+      const dictData = await dictRes.json();
+      if (dictData.found && dictData.meaning) {
+        meaning = dictData.meaning;
+        reading = dictData.reading || '';
+      }
+    }
+    // Fallback to Jisho if no JMdict result
+    if (!meaning) {
+      const res = await fetch(`/proxy/jisho?word=${encodeURIComponent(w.t)}`);
+      if (res.ok) {
+        const data = await res.json();
+        meaning = data.meaning || '';
+        reading = reading || data.reading || '';
+      }
+    }
+    // If meaning looks non-Chinese, translate
+    const hasChinese = /[\u4e00-\u9fff]/.test(meaning);
+    if (meaning && !hasChinese) {
+      const cacheKey = 'dict_zh_' + w.t;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        meaning = cached;
+      } else {
+        try {
+          const dlKey = getDeepLKey();
+          if (dlKey) {
+            // Use DeepL if key available
+            const translated = await translateBatch([meaning], dlKey);
+            if (translated[0] && /[\u4e00-\u9fff]/.test(translated[0])) {
+              meaning = translated[0];
+              localStorage.setItem(cacheKey, meaning);
+            }
+          } else {
+            // Fallback: use Claude API to translate
+            const resp = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 100,
+                messages: [{ role: 'user', content: '把这个日语词典释义翻译成中文，只输出翻译结果，不要解释：' + meaning }]
+              })
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              const zh = data.content?.[0]?.text?.trim();
+              if (zh && /[\u4e00-\u9fff]/.test(zh)) {
+                meaning = zh;
+                localStorage.setItem(cacheKey, meaning);
+              }
+            }
+          }
+        } catch(e) { console.log('translate err', e); }
+      }
+    }
+    if (meaning) {
+      document.getElementById('popMeaning').textContent = meaning;
+      w.m = meaning;
+    }
+    if (reading && !w.f) {
+      w.f = reading;
+      document.getElementById('popReading').textContent = `読み：${kata2hira(reading)}`;
+    }
+  } catch(e) {
+    // Keep existing meaning if fetch fails
+  }
+}
+function closePopup() { document.getElementById('popupWrap').classList.remove('show'); document.querySelectorAll('.wc').forEach(c=>c.classList.remove('active')); curWord=null; }
+
+// ── VOCAB ──────────────────────────────────────────────────────
+function addToVocab() {
+  if (!curWord) return;
+  if (vocab.some(v=>v.t===curWord.t)) { showToast('已在生词本中',false); return; }
+  vocab.push(curWord); saveLS('nj_vocab',vocab); updateBadges();
+  showToast(`「${curWord.t}」已加入生词本`);
+  ['btnAdd','btnAddMobile'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.textContent='✓ 已收录'; b.className='btn-add done'; }
+  });
+}
+function renderVocab() {
+  const q = document.getElementById('vsearch').value.toLowerCase();
+  const fl = vocab.filter(v=>v.t.includes(q)||(v.f||'').includes(q)||(v.r||'').toLowerCase().includes(q)||(v.m||'').includes(q));
+  document.getElementById('vcount').textContent=`共 ${vocab.length} 个生词${fl.length<vocab.length?`（筛选 ${fl.length}）`:''}`;
+  const list = document.getElementById('vcList');
+  if (!vocab.length) { list.innerHTML='<div class="empty"><div class="ei">📖</div><p>还没有生词<br>点击字幕词语可添加</p></div>'; return; }
+  if (!fl.length) { list.innerHTML='<div class="empty"><div class="ei">🔍</div><p>没有匹配的词语</p></div>'; return; }
+  list.innerHTML = fl.map(v=>{
+    const ri=vocab.indexOf(v); const pos=POS_CFG[v.p]||POS_CFG.other;
+    return `<div class="vc" data-word="${v.t}" onclick="speak(this.dataset.word)"><div class="vc-word" style="color:${pos.color}">${v.t} <span style="font-size:12px;color:var(--t3)">🔊</span></div><div class="vc-sub">${v.f?v.f+' · ':''}${v.r||''}</div><div class="vc-meaning">${v.m||''}</div><div class="vc-dot" style="background:${pos.color}"></div><button class="vc-del" onclick="event.stopPropagation();delVocab(${ri})">删除</button></div>`;
+  }).join('');
+}
+function delVocab(i) { vocab.splice(i,1); saveLS('nj_vocab',vocab); updateBadges(); renderVocab(); showToast('已删除',false); }
+
+// ── FAVS ───────────────────────────────────────────────────────
+function toggleFav() {
+  if (curIdx<0) return;
+  const sub=subs[curIdx]; const jp=sub.w.map(w=>w.t).join('');
+  const ei=favs.findIndex(f=>f.zh===sub.zh);
+  if (ei>=0) { favs.splice(ei,1); showToast('已取消收藏',false); }
+  else { favs.push({jp,zh:sub.zh,note:'',time:sub.s}); showToast('句子已收藏 ★'); }
+  saveLS('nj_favs',favs); updateBadges(); buildSubList(); showSub(curIdx);
+}
+function renderFavs() {
+  { const _e=document.getElementById('fcount'); if(_e) { _e.textContent=`共 ${favs.length} 条收藏`; } }
+  { const _e=document.getElementById('favList'); if(_e) { const list=_e; } }
+  if (!favs.length) { list.innerHTML='<div class="empty"><div class="ei">⭐</div><p>还没有收藏<br>点击字幕旁的 ☆ 收藏</p></div>'; return; }
+  list.innerHTML=favs.map((f,i)=>`<div class="fc"><div class="fc-jp">${f.jp}</div><div class="fc-zh">${f.zh}</div><div class="fc-foot"><span class="fc-time">${fmt(f.time||0)}</span><input class="fc-note" value="${(f.note||'').replace(/"/g,'&quot;')}" placeholder="添加笔记..." onchange="updateNote(${i},this.value)"><button class="fc-del" onclick="delFav(${i})">✕</button></div></div>`).join('');
+}
+function updateNote(i,val){favs[i].note=val;saveLS('nj_favs',favs);}
+function delFav(i){favs.splice(i,1);saveLS('nj_favs',favs);updateBadges();renderFavs();buildSubList();if(curIdx>=0)showSub(curIdx);}
+
+// ── AI ANALYSIS ────────────────────────────────────────────────
+async function analyzeAI() {
+  if (!subs.length) { showToast('请先上传SRT字幕', false); return; }
+  const progBar = document.getElementById('mecabProgress');
+  if (progBar) { progBar.style.display = 'block'; progBar.textContent = '⚡ MeCab 分析中...'; }
+  try {
+    const BATCH = 50;
+    let done = 0;
+    for (let i = 0; i < subs.length; i += BATCH) {
+      const batch = subs.slice(i, i + BATCH);
+      const sentences = batch.map(s => ({ text: s.w.map(w => w.t).join('') || s.jp || '' }));
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentences })
+      });
+      if (!res.ok) throw new Error('服务器错误 ' + res.status);
+      const results = await res.json();
+      results.forEach((r, j) => {
+        if (r.words && r.words.length) subs[i + j].w = r.words;
+      });
+      done = Math.min(i + BATCH, subs.length);
+      if (progBar) progBar.textContent = '⚡ 已分析 ' + done + ' / ' + subs.length + ' 句';
+      buildSubList();
+      if (curIdx >= 0) showSub(curIdx);
+    }
+    showToast('✓ 词性分析完成！共 ' + subs.length + ' 句');
+    if (progBar) setTimeout(() => { progBar.style.display = 'none'; }, 3000);
+  } catch(e) {
+    showToast('MeCab 分析失败: ' + e.message, false);
+    if (progBar) progBar.style.display = 'none';
+    console.error(e);
+  }
+}
+// ── UI ─────────────────────────────────────────────────────────
+function switchRightTab(name) { /* no-op: right panel is subtitle list only */ }
+
+function switchTab(name) {
+  closeOverlay();
+  document.querySelectorAll('.ttab').forEach(t=>t.classList.remove('on'));
+  const tab = document.getElementById('tab-'+name);
+  const body = document.getElementById('body-'+name);
+  if (tab) tab.classList.add('on');
+  if (body) { body.style.display = 'flex'; }
+  document.getElementById('overlay-backdrop').style.display = 'block';
+  if(name==='vocab') renderVocab();
+  if(name==='favs') renderFavs();
+  if(name==='settings') loadSettings();
+}
+function closeOverlay() {
+  ['body-vocab','body-favs','body-settings'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  const bd = document.getElementById('overlay-backdrop'); if (bd) bd.style.display = 'none';
+  document.querySelectorAll('.ttab').forEach(t=>t.classList.remove('on'));
+}
+function updateBadges() {
+  const mv = document.getElementById("mobileStatVocab"); if (mv) mv.textContent = vocab.length;
+  document.getElementById('badgeVocab').textContent=vocab.length||'';
+  document.getElementById('badgeFav').textContent=favs.length||'';
+  document.getElementById('statVocab').textContent=vocab.length;
+  document.getElementById('statFav').textContent=favs.length;
+}
+let toastTimer;
+function showToast(msg,ok=true) {
+  const el=document.getElementById('toast');
+  el.textContent=(ok?'✓  ':'⚠  ')+msg;
+  el.className='show '+(ok?'ok':'warn');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.className='',2600);
+}
+
+
+// ── 键盘快捷键 ────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  // 忽略输入框里的按键
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (videoEl) {
+      if (videoEl.paused) videoEl.play();
+      else videoEl.pause();
+    }
+  }
+
+  if (e.code === 'KeyR') {
+    e.preventDefault();
+    if (curIdx >= 0) seekTo(curIdx);
+  }
+
+  if (e.code === 'KeyA') {
+    e.preventDefault();
+    if (curIdx > 0) seekTo(curIdx - 1);
+  }
+
+  if (e.code === 'KeyF') {
+    e.preventDefault();
+    if (curIdx >= 0 && curIdx < subs.length - 1) seekTo(curIdx + 1);
+  }
+});
+
+// ── TTS 朗读 ──────────────────────────────────────────────────
+function speak(text) {
+  if (!text || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'ja-JP';
+  utter.rate = 0.9;
+  // Try to find a Japanese voice
+  const voices = window.speechSynthesis.getVoices();
+  const jaVoice = voices.find(v => v.lang.startsWith('ja'));
+  if (jaVoice) utter.voice = jaVoice;
+  window.speechSynthesis.speak(utter);
+}
+
+// ── RECORDING ────────────────────────────────────────────────
+let mediaRecorder = null, recChunks = [], isRecording = false;
+
+function toggleRec() {
+  const panel = document.getElementById('recPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (panel.style.display === 'block') updateOrigAudio();
+}
+
+function updateOrigAudio() {
+  if (!videoEl || curIdx < 0) return;
+  const sub = subs[curIdx];
+  if (!sub) return;
+  // Clip the original audio from the video for current sentence
+  const orig = document.getElementById('origAudio');
+  orig.src = videoEl.src || (videoEl.querySelector('source')?.src || '');
+  orig.currentTime = sub.s;
+}
+
+function playOriginal() {
+  if (!videoEl || curIdx < 0) return;
+  const sub = subs[curIdx];
+  if (!sub) return;
+  videoEl.pause();
+  const orig = document.getElementById('origAudio');
+  // Use the video element directly for original playback
+  videoEl.currentTime = sub.s;
+  videoEl.play();
+  // Stop at end of sentence
+  const stopAt = sub.e;
+  const checker = setInterval(() => {
+    if (videoEl.currentTime >= stopAt) {
+      videoEl.pause();
+      clearInterval(checker);
+    }
+  }, 100);
+}
+
+async function startRec() {
+  if (isRecording) {
+    stopRec(); return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => recChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      document.getElementById('myAudio').src = url;
+      document.getElementById('recSaveBtn').style.display = '';
+      stream.getTracks().forEach(t => t.stop());
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    const btn = document.getElementById('recStartBtn');
+    btn.textContent = '⏹ 停止';
+    btn.classList.add('recording');
+    document.getElementById('btnRec').classList.add('recording');
+    showToast('录音中... 按停止结束');
+  } catch(e) {
+    showToast('麦克风权限被拒绝', false);
+  }
+}
+
+function stopRec() {
+  if (mediaRecorder && isRecording) {
+    mediaRecorder.stop();
+    isRecording = false;
+    const btn = document.getElementById('recStartBtn');
+    btn.textContent = '⏺ 录音';
+    btn.classList.remove('recording');
+    document.getElementById('btnRec').classList.remove('recording');
+    showToast('录音完成！点播放对比');
+  }
+}
+
+function saveRec() {
+  const audio = document.getElementById('myAudio');
+  if (!audio.src) return;
+  const a = document.createElement('a');
+  // Generate filename from current subtitle time
+  const time = curIdx >= 0 ? fmt(subs[curIdx].s).replace(':','m')+'s' : 'rec';
+  a.download = `录音_${time}.webm`;
+  a.href = audio.src;
+  a.click();
+  showToast('录音已保存');
+}
+
+// ── OVERLAY TOGGLES ──────────────────────────────────────────
+let showJp = false, showZh = false;
+function toggleOverlay(type) {
+  if (type === 'jp') {
+    showJp = !showJp;
+    { const _e=document.getElementById('togJp'); if(_e) { _e.classList.toggle('on', showJp); } }
+  } else {
+    showZh = !showZh;
+    { const _e=document.getElementById('togZh'); if(_e) { _e.classList.toggle('on', showZh); } }
+  }
+  // Refresh overlay
+  const overlay = document.getElementById('subOverlay');
+  if (overlay) {
+    document.getElementById('overlayJp').style.display = showJp ? '' : 'none';
+    document.getElementById('overlayZh').style.display = showZh ? '' : 'none';
+    if (!showJp && !showZh) overlay.style.display = 'none';
+    else if (curIdx >= 0) overlay.style.display = 'block';
+  }
+  // Bottom translation always visible - not affected by toggle
+}
+
+// ── SRT PICKER ───────────────────────────────────────────────
+async function showSrtPicker() {
+  const modal = document.getElementById('srtPickerModal');
+  modal.style.display = 'flex';
+  const list = document.getElementById('srtList');
+  list.innerHTML = '<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">加载中...</div>';
+  try {
+    const res = await fetch('/subtitles');
+    const files = await res.json();
+    if (!files.length) {
+      list.innerHTML = '<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Downloads 里没有找到字幕文件</div>';
+      return;
+    }
+    list.innerHTML = files.map(f => `
+      <div onclick="loadSrtFromServer('${encodeURIComponent(f.name)}')"
+        style="padding:12px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--b1);margin-bottom:6px;display:flex;align-items:center;gap:10px;transition:background .15s"
+        onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">
+        <span style="font-size:20px">📋</span>
+        <div style="font-size:13px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</div>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--adv);font-size:12px;text-align:center;padding:20px">加载失败</div>';
+  }
+}
+
+async function loadSrtFromServer(encodedName) {
+  document.getElementById('srtPickerModal').style.display = 'none';
+  showToast('正在读取字幕...');
+  try {
+    const res = await fetch('/subtitle/' + encodedName);
+    const text = await res.text();
+    const parsed = parseSRT(text);
+    if (!parsed.length) { showToast('字幕解析失败', false); return; }
+    subs = parsed; curIdx = -1; buildSubList();
+    const name = decodeURIComponent(encodedName);
+    const srtIcon = document.getElementById('srtIcon'); if(srtIcon) srtIcon.textContent = '✓';
+    const srtLabel = document.getElementById('srtLabel'); if(srtLabel) srtLabel.textContent = `字幕已载入 (${parsed.length}句)`;
+    const srtBtnLabel = document.getElementById('srtBtnLabel'); if(srtBtnLabel) srtBtnLabel.classList.add('loaded');
+    const step2 = document.getElementById('step2'); if(step2) { step2.textContent='✓'; step2.classList.add('done'); }
+    showToast(`✓ 已载入 ${parsed.length} 条字幕！`);
+    // Auto-load translation cache
+    const cacheKey = getSrtCacheKey(subs);
+    if (loadTranslationCache(cacheKey, subs)) {
+      buildSubList();
+      showToast('✓ 已从缓存加载翻译');
+    }
+    // Auto-translate if enabled
+    const autoOn = document.getElementById('autoTranslate')?.checked;
+    const key = getDeepLKey();
+    if (autoOn && key) setTimeout(() => translateAll(), 500);
+    // Auto MeCab analysis
+    setTimeout(() => analyzeAI(), 800);
+  } catch(e) {
+    showToast('字幕加载失败', false);
+  }
+}
+
+// ── VIDEO PICKER ─────────────────────────────────────────────
+async function showVideoPicker() {
+  const modal = document.getElementById('videoPickerModal');
+  modal.style.display = 'flex';
+  const list = document.getElementById('videoList');
+  list.innerHTML = '<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">加载中...</div>';
+  try {
+    const res = await fetch('/videos');
+    const files = await res.json();
+    if (!files.length) {
+      list.innerHTML = '<div style="color:var(--t3);font-size:12px;text-align:center;padding:20px">Downloads 里没有找到视频文件</div>';
+      return;
+    }
+    list.innerHTML = files.map(f => `
+      <div onclick="loadVideoFromServer('${encodeURIComponent(f.name)}')"
+        style="padding:12px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--b1);margin-bottom:6px;display:flex;align-items:center;gap:10px;transition:background .15s"
+        onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">
+        <span style="font-size:20px">🎬</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">${f.size} MB</div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--adv);font-size:12px;text-align:center;padding:20px">加载失败，请确认服务器正在运行</div>';
+  }
+}
+
+function loadVideoFromServer(encodedName) {
+  document.getElementById('videoPickerModal').style.display = 'none';
+  const url = '/video/' + encodedName;
+  const wrap = document.getElementById('videoWrap');
+  wrap.innerHTML = '';
+  const vid = document.createElement('video');
+  vid.playsInline = true;
+  vid.setAttribute('playsinline', '');
+  vid.setAttribute('webkit-playsinline', '');
+  // Hide native controls on mobile, keep on desktop
+  if (window.innerWidth > 700) { vid.controls = true; }
+  vid.style.cssText = 'width:100%;height:55vh;display:block;object-fit:contain;background:#000';
+  vid.src = url;
+  vid.addEventListener('error', () => showToast('视频加载失败', false));
+  wrap.appendChild(vid); videoEl = vid;
+  const name = decodeURIComponent(encodedName);
+  const n = name.length > 22 ? name.slice(0,22)+'…' : name;
+  document.getElementById('videoIcon').textContent = '🎬';
+  document.getElementById('videoLabel').textContent = n;
+  document.getElementById('videoBtnLabel').classList.add('loaded');
+  document.getElementById('step1').textContent = '✓';
+  document.getElementById('step1').classList.add('done');
+  showToast('视频已载入：' + name);
+}
+
+// ── GLOBAL SUBTITLE SYNC LOOP (single instance) ─────────────
+let syncStarted = false;
+let seekLock = false;
+function globalSyncLoop() {
+  if (!seekLock && videoEl && !videoEl.paused && !videoEl.ended) {
+    const t = videoEl.currentTime;
+    const i = subs.findIndex(s => t >= s.s && t < s.e);
+    if (i !== curIdx) showSub(i);
+  }
+  updateMobileProgress();
+  // Sync play button icon
+  const pb = document.getElementById('mobilePlayBtn');
+  if (pb && videoEl) pb.textContent = videoEl.paused ? '▶' : '⏸';
+  requestAnimationFrame(globalSyncLoop);
+}
+function seekFromBar(e) {
+  const vid = document.querySelector('video');
+  if (!vid || !vid.duration) return;
+  e.preventDefault();
+  const bar = document.getElementById('mobileProgressBar');
+  const rect = bar.getBoundingClientRect();
+  const touch = e.touches ? e.touches[0] : e;
+  const ratio = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+  if (vid) vid.currentTime = ratio * vid.duration;
+}
+function updateMobileProgress() {
+  const vid = document.querySelector('video');
+  const fill = document.getElementById('mobileProgressFill');
+  if (!fill || !vid || !vid.duration) return;
+  fill.style.width = (vid.currentTime / vid.duration * 100) + '%';
+}
+function seekTo(idx) {
+  if (!subs[idx] || !videoEl) return;
+  seekLock = true;
+  videoEl.currentTime = subs[idx].s;
+  showSub(idx);
+  videoEl.play();
+  setTimeout(() => { seekLock = false; }, 500);
+}
+
+// ── RESIZABLE DIVIDER ────────────────────────────────────────
+(function() {
+  const divider = document.getElementById('divider');
+  const right = document.getElementById('rightPanel');
+  const divider2 = document.getElementById('divider2');
+  { const _e=document.getElementById('subPanel'); if(_e) { const subPanel = _e; } }
+  if (!divider || !right) return;
+  // divider2 resizes subPanel
+  if (divider2 && subPanel) {
+    let drag2 = false, sx2, sw2;
+    divider2.addEventListener('mousedown', e => {
+      drag2 = true; sx2 = e.clientX; sw2 = right.offsetWidth;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', e => {
+      if (!drag2) return;
+      const delta = sx2 - e.clientX;
+      right.style.width = Math.min(Math.max(sw2 + delta, 140), window.innerWidth * 0.4) + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      drag2 = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    });
+  }
+  let dragging = false, startX, startW;
+  divider.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = right.offsetWidth;
+    divider.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = startX - e.clientX;
+    const newW = Math.min(Math.max(startW + delta, 160), window.innerWidth * 0.6);
+    right.style.width = newW + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    divider.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+  // Touch support
+  divider.addEventListener('touchstart', e => {
+    dragging = true; startX = e.touches[0].clientX; startW = right.offsetWidth;
+  }, {passive:true});
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const delta = startX - e.touches[0].clientX;
+    const newW = Math.min(Math.max(startW + delta, 160), window.innerWidth * 0.6);
+    right.style.width = newW + 'px';
+  }, {passive:true});
+  document.addEventListener('touchend', () => { dragging = false; });
+})();
+
+// ── MOBILE VOCAB ─────────────────────────────────────────────
+function toggleMobileVocab() {
+  const modal = document.getElementById('mobileVocabModal');
+  if (!modal) return;
+  const isOpen = modal.style.display !== 'none';
+  if (isOpen) { modal.style.display = 'none'; return; }
+  const list = document.getElementById('mobileVocabList');
+  if (!vocab.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--t3)">还没有生词，点词语加入生词本</div>';
+  } else {
+    list.innerHTML = vocab.map((w,i) => {
+      const pos = POS_CFG[w.p] || POS_CFG.other;
+      return `<div style="padding:12px 16px;border-bottom:1px solid var(--b2);display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <span style="font-size:20px;font-weight:700;color:${pos.color}">${w.t}</span>
+          <span style="font-size:12px;color:var(--t3);margin-left:8px">${w.f||''}</span>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">${w.m||''}</div>
+        </div>
+        <button onclick="speak('${w.t.replace(/'/g,String.fromCharCode(39))}')" style="background:none;border:1px solid var(--b1);border-radius:6px;padding:6px 10px;color:var(--t2);font-size:14px;cursor:pointer">🔊</button>
+        <button onclick="vocab.splice(${i},1);saveLS('nj_vocab',vocab);updateBadges();toggleMobileVocab();setTimeout(toggleMobileVocab,50)" style="background:none;border:1px solid var(--b1);border-radius:6px;padding:6px 10px;color:#f44;font-size:14px;cursor:pointer">✕</button>
+      </div>`;
+    }).join('');
+  }
+  modal.style.display = 'block';
+}
+
+// ── INIT ───────────────────────────────────────────────────────
+// Close popup on click outside
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('popupWrap');
+  if (wrap && wrap.classList.contains('show')) {
+    const inner = wrap.querySelector('.popup-inner');
+    if (inner && !inner.contains(e.target) && !e.target.closest('.mw-chip') && !e.target.closest('.wc')) {
+      closePopup();
+    }
+  }
+});
+requestAnimationFrame(globalSyncLoop);
+updateBadges();
+loadSettings();
+</script>
+
+<!-- ── OVERLAY PANELS ─────────────────────────────────────── -->
+<div id="overlay-backdrop" onclick="closeOverlay()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200"></div>
+
+<div id="body-vocab" style="display:none;position:fixed;top:0;right:0;width:320px;height:100%;background:var(--s1);border-left:1px solid var(--b1);z-index:201;flex-direction:column;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--b1);flex-shrink:0">
+    <span style="font-weight:600;font-size:14px">📖 生词本</span>
+    <button onclick="if(confirm('清空所有生词？')){vocab=[];saveLS('nj_vocab',vocab);renderVocab();}" style="background:none;border:none;color:var(--t3);font-size:12px;cursor:pointer">清空</button>
+    <button onclick="closeOverlay()" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer">✕</button>
+  </div>
+  <div style="padding:8px 12px;border-bottom:1px solid var(--b1);flex-shrink:0">
+    <input id="vsearch" oninput="renderVocab()" placeholder="搜索生词..." style="width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:5px 8px;color:var(--t1);font-size:13px;box-sizing:border-box">
+    <div id="vcount" style="font-size:11px;color:var(--t3);margin-top:4px">共 0 个生词</div>
+  </div>
+  <div id="vcList" style="flex:1;overflow-y:auto;padding:8px 12px"></div>
+</div>
+
+<div id="body-favs" style="display:none;position:fixed;top:0;right:0;width:320px;height:100%;background:var(--s1);border-left:1px solid var(--b1);z-index:201;flex-direction:column;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--b1);flex-shrink:0">
+    <span style="font-weight:600;font-size:14px">⭐ 收藏句子</span>
+    <button onclick="closeOverlay()" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer">✕</button>
+  </div>
+  <div id="favList" style="flex:1;overflow-y:auto;padding:8px 12px">
+    <div id="fcount" style="font-size:11px;color:var(--t3);padding:4px 0">共 0 条收藏</div>
+  </div>
+</div>
+
+<div id="body-settings" style="display:none;position:fixed;top:0;right:0;width:320px;height:100%;background:var(--s1);border-left:1px solid var(--b1);z-index:201;flex-direction:column;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--b1);flex-shrink:0">
+    <span style="font-weight:600;font-size:14px">⚙️ 设置</span>
+    <button onclick="closeOverlay()" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer">✕</button>
+  </div>
+  <div style="padding:14px;overflow-y:auto">
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:6px">DeepL API Key</div>
+      <div style="display:flex;gap:6px">
+        <input id="deeplKey" placeholder="xxxx:fx" style="flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:13px">
+        <button onclick="saveDeepLKey()" style="padding:6px 10px;border-radius:6px;background:var(--accent);color:#fff;border:none;font-size:13px;cursor:pointer">保存</button>
+      </div>
+      <div id="deeplStatus" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);cursor:pointer;margin-bottom:12px">
+      <input type="checkbox" id="autoTranslate"> 自动翻译字幕
+    </label>
+    <button onclick="translateAll()" style="width:100%;padding:8px;border-radius:8px;background:var(--s2);border:1px solid var(--b1);color:var(--t1);font-size:13px;cursor:pointer">🌐 翻译全部字幕</button>
+  </div>
+</div>
+
+
+<!-- Video Picker Modal -->
+<div id="videoPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center">
+  <div style="background:var(--s1);border-radius:12px;width:min(480px,90vw);max-height:70vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--b1)">
+      <span style="font-weight:600;font-size:14px">选择视频文件</span>
+      <button onclick="document.getElementById('videoPickerModal').style.display='none'" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div id="videoList" style="overflow-y:auto;padding:12px"></div>
+  </div>
+</div>
+
+<!-- SRT Picker Modal -->
+<div id="srtPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center">
+  <div style="background:var(--s1);border-radius:12px;width:min(480px,90vw);max-height:70vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--b1)">
+      <span style="font-weight:600;font-size:14px">选择字幕文件</span>
+      <button onclick="document.getElementById('srtPickerModal').style.display='none'" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div id="srtList" style="overflow-y:auto;padding:12px"></div>
+  </div>
+</div>
+</body>
+</html>
